@@ -66,11 +66,11 @@ static Logger gLogger;
 
 class Calibrator : public nvinfer1::IInt8LegacyCalibrator {
  public:
-  Calibrator(int batch_size, int input_size, int firstBatch = 0,
+  Calibrator(int batch_size, int inputSize, int firstBatch = 0,
              double cutoff = 0.5, double quantile = 0.5, bool readCache = true)
       : mFirstBatch(firstBatch), mReadCache(readCache), index(0) {
     using namespace nvinfer1;
-    mInputCount = batch_size * input_size;
+    mInputCount = batch_size * inputSize;
     CHECK(cudaMalloc(&mDeviceInput, mInputCount * sizeof(float)));
     reset(cutoff, quantile);
     mData.resize(mInputCount);
@@ -132,25 +132,25 @@ ICudaEngine* onnxToTRTModel(
     const std::string& modelFile,  // name of the onnx model
     unsigned int maxBatchSize,
     DataType dataType,
-    int* input_size, int* output_size) {
+    int* inputSize, int* outputSize) {
   // create the builder
   IBuilder* builder = createInferBuilder(gLogger);
   nvinfer1::INetworkDefinition* network = builder->createNetwork();
   nvonnxparser::IParser* parser = nvonnxparser::createParser(*network, gLogger);
 
   if (!parser->parseFromFile(modelFile.c_str(),
-                             static_cast<int>(ILogger::Severity::kINFO))) {
+                             static_cast<int>(ILogger::Severity::kWARNING))) {
     exit(EXIT_FAILURE);
   }
 
   auto inputDims = network->getInput(0)->getDimensions();
-  *input_size = *output_size = 1;
+  *inputSize = *outputSize = 1;
   for (int i = 0; i < inputDims.nbDims; i++) {
-    *input_size *= inputDims.d[i];
+    *inputSize *= inputDims.d[i];
   }
   auto outputDims = network->getOutput(0)->getDimensions();
   for (int i = 0; i < outputDims.nbDims; i++) {
-    *output_size *= outputDims.d[i];
+    *outputSize *= outputDims.d[i];
   }
 
   // Build the engine
@@ -159,7 +159,7 @@ ICudaEngine* onnxToTRTModel(
   builder->setAverageFindIterations(1);
   builder->setMinFindIterations(1);
   builder->setInt8Mode(true);
-  Calibrator calibrator(1, *input_size);
+  Calibrator calibrator(1, *inputSize);
   builder->setInt8Calibrator(&calibrator);
 
   ICudaEngine* engine = builder->buildCudaEngine(*network);
@@ -174,7 +174,7 @@ ICudaEngine* onnxToTRTModel(
 }
 
 float doInference(IExecutionContext& context, float* input, int batchSize,
-                  int repeat, int input_size, int output_size) {
+                  int repeat, int inputSize, int outputSize) {
   const ICudaEngine& engine = context.getEngine();
   // input and output buffer pointers that we pass to the engine - the engine
   // requires exactly IEngine::getNbBindings(), of these, but in this case we
@@ -195,12 +195,12 @@ float doInference(IExecutionContext& context, float* input, int batchSize,
 
   // create GPU buffers and a stream
   CHECK(
-      cudaMalloc(&buffers[inputIndex], batchSize * input_size * sizeof(float)));
+      cudaMalloc(&buffers[inputIndex], batchSize * inputSize * sizeof(float)));
   CHECK(cudaMalloc(&buffers[outputIndex],
-                   batchSize * output_size * sizeof(float)));
+                   batchSize * outputSize * sizeof(float)));
 
   CHECK(cudaMemcpy(buffers[inputIndex], input,
-                   batchSize * input_size * sizeof(float),
+                   batchSize * inputSize * sizeof(float),
                    cudaMemcpyHostToDevice));
   cudaStream_t stream;
   CHECK(cudaStreamCreate(&stream));
@@ -243,16 +243,16 @@ int main(int argc, char** argv) {
     repeat = std::atoi(argv[3]);
   }
 
-  std::string model_name = argv[1];
-  int batch_size = std::atoi(argv[2]);
+  std::string modelName = argv[1];
+  int batchSize = std::atoi(argv[2]);
 
   auto dtype = TEST_INT8 ? DataType::kINT8 : DataType::kFLOAT;
 
-  int input_size, output_size;
+  int inputSize, outputSize;
   auto engine =
-      onnxToTRTModel(model_name, batch_size, dtype, &input_size, &output_size);
+      onnxToTRTModel(modelName, batchSize, dtype, &inputSize, &outputSize);
 
-  std::vector<float> data(batch_size * input_size);
+  std::vector<float> data(batchSize * inputSize);
   for (auto& elem : data) {
     elem = randF();
   }
@@ -264,10 +264,10 @@ int main(int argc, char** argv) {
   assert(context != nullptr);
 
   // run inference
-  auto time = doInference(*context, data.data(), batch_size, repeat, input_size,
-                          output_size);
+  auto time = doInference(*context, data.data(), batchSize, repeat, inputSize,
+                          outputSize);
 
-  std::cout << "TensorRT " << model_name << ' '
+  std::cout << "TensorRT " << modelName << ' ' << "(batch=" << batchSize << ") "
             << (TEST_INT8 ? "int8" : "fp32");
   std::cout << " Avg. Time: " << time / repeat << "ms" << std::endl;
 
