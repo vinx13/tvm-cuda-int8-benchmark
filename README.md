@@ -1,5 +1,5 @@
 # Benchmark of TVM quantized model on CUDA
-This repository contains benchmark code of int8 inference speed of TVM. The benchmark of MXNet and TensorRT is provided as baseline.
+This repository contains benchmark code of int8 inference speed of TVM for the blog post [Automating Optimization of Quantized Deep Learning Models on CUDA](https://tvm.ai/2019/04/29/opt-cuda-quantized.html). The benchmark of MXNet and TensorRT is provided as baseline.
 
 ## How to Run
 #### TVM
@@ -27,4 +27,5 @@ python3 run_tensorrt.py
 ```
 
 ## Result
-TBA
+![benchmark results](/image/benchmark.svg)
+
