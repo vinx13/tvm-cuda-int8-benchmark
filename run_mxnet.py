@@ -20,7 +20,6 @@ def bench(model_name, batch_size):
 
     # run
     dry_run = 5                 # use 5 iterations to warm up
-    mx.profiler.set_config(profile_all=True, aggregate_stats=True)
 
     for i in range(dry_run + num_batches):
         if i == dry_run:
@@ -29,7 +28,6 @@ def bench(model_name, batch_size):
         for output in mod.get_outputs():
             output.wait_to_read()
     mx.nd.waitall()
-    mx.profiler.set_state('stop')
     return (time.time() - t) * 1000. / num_batches
 
 
