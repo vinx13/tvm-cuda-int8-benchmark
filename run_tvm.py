@@ -20,13 +20,13 @@ target = tvm.target.cuda()
 def bench(name, batch):
     sym, data_shape = get_network(name, batch)
     data_shape = data_shape[0][1]
-    sym, _ = relay.frontend.from_mxnet(sym, {'data': data_shape})
-    sym, params = tvm.relay.testing.create_workload(sym)
-    with relay.quantize.qconfig(skip_k_conv=0, round_for_shift=True):
-        sym = relay.quantize.quantize(sym, params)
+    mod, _ = relay.frontend.from_mxnet(sym, {'data': data_shape})
+    mod, params = tvm.relay.testing.create_workload(mod['main'])
+    with relay.quantize.qconfig(skip_conv_layers=None, round_for_shift=True):
+        mod['main'] = relay.quantize.quantize(mod['main'], params=params)
 
-    with relay.build_module.build_config(opt_level=3):
-        graph, lib, params = relay.build(sym, 'cuda', 'llvm', params=params)
+    with relay.build_config(opt_level=3):
+        graph, lib, params = relay.build(mod, 'cuda', 'llvm', params=params)
 
     m = graph_runtime.create(graph, lib, ctx)
     x = np.random.uniform(size=data_shape)
