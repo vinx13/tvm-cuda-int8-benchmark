@@ -222,11 +222,12 @@ def tune_and_evaluate(tuning_opt):
     with relay.quantize.qconfig(store_lowbit_output=False):
         mod['main'] = relay.quantize.quantize(mod['main'], params=params)
     tasks = autotvm.task.extract_from_program(mod['main'], target=target,
-                                            params=params, ops=(relay.op.nn.conv2d,))
+                                            params=params, ops=(relay.op.nn.conv2d,
+                                                                relay.op.nn.dense))
     for i in range(len(tasks)):
         tsk = tasks[i]
-        input_channel = tsk.workload[1][1]
-        output_channel = tsk.workload[1][0]
+        input_channel = tsk.workload[2][1]
+        output_channel = tsk.workload[2][0]
         if output_channel % 4 == 0 and input_channel % 4 == 0:
             tsk = autotvm.task.create(tasks[i].name, tasks[i].args,
                                       tasks[i].target, tasks[i].target_host, 'int8')
