@@ -166,15 +166,6 @@ def tune_tasks(tasks,
                early_stopping=None,
                log_filename='tuning.log',
                use_transfer_learning=True):
-    # use int8 template_key
-    for i in range(len(tasks)):
-        output_channel = tsk.workload[1][0]
-        input_channel = tsk.workload[1][1]
-        if output_channel % 4 == 0 and input_channel % 4 == 0:
-            tsk = autotvm.task.create(tasks[i].name, tasks[i].args,
-                                      tasks[i].target, tasks[i].target_host, 'int8')
-            tasks[i] = tsk
-
     # create tmp log file
     tmp_log_file = log_filename + ".tmp"
     if os.path.exists(tmp_log_file):
@@ -224,8 +215,11 @@ def tune_and_evaluate(tuning_opt):
     tasks = autotvm.task.extract_from_program(mod['main'], target=target,
                                             params=params, ops=(relay.op.nn.conv2d,
                                                                 relay.op.nn.dense))
+    # use int8 template_key
     for i in range(len(tasks)):
         tsk = tasks[i]
+        if tsk.workload[0] != 'conv2d':
+            continue
         input_channel = tsk.workload[2][1]
         output_channel = tsk.workload[2][0]
         if output_channel % 4 == 0 and input_channel % 4 == 0:
