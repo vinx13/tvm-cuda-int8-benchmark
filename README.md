@@ -3,7 +3,7 @@ This repository contains benchmark code of int8 inference speed of TVM for the b
 
 ## How to Run
 #### TVM
-The benchmark is conducted using [tvm@e22b58](https://github.com/dmlc/tvm/tree/e22b5802a3e6c269d76e52428ca81cbd4b7d8304).
+The benchmark is conducted using [tvm@e22b58](https://github.com/dmlc/tvm/tree/e22b5802a3e6c269d76e52428ca81cbd4b7d8304). (**This is an outdated version. Please checkout [this branch](https://github.com/vinx13/tvm-cuda-int8-benchmark/tree/latest) to run with recent tvm version.**)
 LLVM and CUDA need to be enabled.
 Compute Capability 6.1 CUDA device is required to support the `dp4a` instruction.
 
