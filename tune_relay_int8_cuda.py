@@ -100,8 +100,9 @@ def get_network(name, batch_size):
         from mxnet.gluon.model_zoo.vision import get_model
         block = get_model('resnet18_v1', pretrained=True)
         mod, params = relay.frontend.from_mxnet(block, shape={'data': input_shape}, dtype=dtype)
-        net = mod[mod.entry_func]
+        net = mod["main"]
         net = relay.Function(net.params, relay.nn.softmax(net.body), None, net.type_params, net.attrs)
+        net = tvm.IRModule.from_expr(net)
     else:
         raise ValueError("Unsupported network: " + name)
 
@@ -211,10 +212,10 @@ def tune_and_evaluate(tuning_opt):
     print("Extract tasks...")
     mod, params, input_shape, out_shape = get_network(network, batch_size=1)
     with relay.quantize.qconfig(store_lowbit_output=False):
-        mod['main'] = relay.quantize.quantize(mod['main'], params=params)
-    tasks = autotvm.task.extract_from_program(mod['main'], target=target,
-                                            params=params, ops=(relay.op.nn.conv2d,
-                                                                relay.op.nn.dense))
+        mod = relay.quantize.quantize(mod, params=params)
+    tasks = autotvm.task.extract_from_program(mod, target=target,
+                                            params=params, ops=(relay.op.get("nn.conv2d"),
+                                                                relay.op.get("nn.dense")))
     # use int8 template_key
     for i in range(len(tasks)):
         tsk = tasks[i]
@@ -224,7 +225,7 @@ def tune_and_evaluate(tuning_opt):
         output_channel = tsk.workload[2][0]
         if output_channel % 4 == 0 and input_channel % 4 == 0:
             tsk = autotvm.task.create(tasks[i].name, tasks[i].args,
-                                      tasks[i].target, tasks[i].target_host, 'int8')
+                                      tasks[i].target, tasks[i].target_host)
             tasks[i] = tsk
 
 
@@ -237,7 +238,7 @@ def tune_and_evaluate(tuning_opt):
         print("Compile...")
         with relay.build_config(opt_level=3):
             graph, lib, params = relay.build_module.build(
-                net, target=target, params=params)
+                mod, target=target, params=params)
 
         # export library
         tmp = tempdir()
